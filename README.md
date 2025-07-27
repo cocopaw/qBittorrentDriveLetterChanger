@@ -34,7 +34,7 @@ The **qBittorrent Drive Letter Changer** is a Python script (also available as a
 3. Ensure qBittorrent is installed and running with WebUI enabled:
    - Go to **Tools > Options > Web UI** in qBittorrent.
    - Check **Web User Interface (Remote control)**.
-   - Note the IP address (usually `127.0.0.1`) and port (default `8080`).
+   - Note the IP address (usually '*' or '127.0.0.1') and port (default `8080`).
    - Ensure authentication is enabled and note your username/password.
 
 ## Usage
@@ -51,7 +51,7 @@ The **qBittorrent Drive Letter Changer** is a Python script (also available as a
    - **Executable version**:
      - Double-click `qBittorrentDriveLetterChanger.exe` or run it from the command prompt.
 3. Follow the prompts:
-   - Confirm qBittorrent is closed and backed up.
+   - Confirm qBittorrent has been backed up.
    - Verify WebUI settings.
    - Enter WebUI URL, username, and password (defaults: `http://127.0.0.1:8080`, `admin`).
    - Specify the old and new drive letters (e.g., `D:` to `E:`).
