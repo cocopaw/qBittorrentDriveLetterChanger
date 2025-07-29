@@ -1,7 +1,7 @@
 # qBittorrent Drive Letter Changer
 
 ## Overview
-The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (also available as a standalone `.exe`) designed to update the drive letter for multiple torrents with differing save paths in qBittorrent. It addresses the limitation of the qBittorrent GUI’s "Set Location" function, which only supports updating multiple torrents with the same save path.
+The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (also available as a standalone `.exe`) designed to update the drive letter for multiple torrents with differing save paths in qBittorrent. It addresses a limitation of the qBittorrent GUI’s "Set Location" function, which only supports updating multiple torrents with the same save path.
 
 ## Features
 - Updates drive letters for torrent save paths in qBittorrent via its WebUI API.
@@ -18,7 +18,7 @@ The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (als
 - **For executable version**:
   - No Python installation required; use the provided `.exe` file
 - qBittorrent with WebUI enabled
-- qBittorrent installed on Windows operating system
+- qBittorrent installed on a Windows operating system
 
 ## Installation
 1. **Option 1: Using Python**
@@ -33,7 +33,7 @@ The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (als
 3. Ensure qBittorrent is installed and running with WebUI enabled:
    - Go to **Tools > Options > Web UI** in qBittorrent.
    - Check **Web User Interface (Remote control)**.
-   - Note the IP address (default '*') and port (default 8080). Use 'localhost' for local access when prompted by the script.
+   - Note the IP address (default '*') and port (default '8080').
    - Ensure authentication is enabled and note your username/password.
 
 ## Usage
@@ -55,12 +55,13 @@ The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (als
    - Enter WebUI URL, username, and password (defaults: `http://localhost:8080`, `admin`).
    - Specify the old and new drive letters (e.g., `D:` to `E:`).
    - Choose to filter by a tracker (optional).
-   - Select to process a single torrent or all torrents, or quit.
+   - Select to process a single torrent or all torrents or quit.
 
 4. Tracker Filtering:
-   - The script allows filtering torrents by tracker domain, mirroring the qBittorrent GUI's 'Trackers' section behavior.
-   - When prompted to filter by tracker, enter 'y' to enable filtering. Then, enter a tracker domain from the 'Trackers' section in GUI.
-   - Press Enter without input to process all trackers (equivalent to the GUI's 'All' setting).
+- The script allows filtering torrents by tracker domain, matching the behavior of the qBittorrent GUI's "Trackers" section.
+- When prompted to filter by tracker:
+  - Enter `y` to enable filtering, then input a tracker domain exactly as it appears in the qBittorrent GUI's "Trackers" section.
+  - Enter `n` or press Enter to process all torrents, equivalent to the GUI's "All" tracker setting.
 
 5. The program will preview changes and update torrent paths. Logs are saved in the `Logs` directory.
 
@@ -83,7 +84,7 @@ To change all torrents from drive `D:` to `E:`:
 3. Enter password: `your_password`
 4. Enter old drive: `D:`
 5. Enter new drive: `E:`
-6. Filter by tracker? (y/n): 'n'
+6. Filter by tracker? (y/n): `n`
 
 ## Logs
 - Logs are saved in the `Logs` directory with filenames like `qbittorrent_drive_change_YYYY-MM-DD_HH-MM-SS.log`.
