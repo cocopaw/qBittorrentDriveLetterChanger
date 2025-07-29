@@ -58,10 +58,10 @@ The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (als
    - Select to process a single torrent or all torrents or quit.
 
 4. Tracker Filtering:
-- The script allows filtering torrents by tracker domain, matching the behavior of the qBittorrent GUI's "Trackers" section.
-- When prompted to filter by tracker:
-  - Enter `y` to enable filtering, then input a tracker domain exactly as it appears in the qBittorrent GUI's "Trackers" section.
-  - Enter `n` or press Enter to process all torrents, equivalent to the GUI's "All" tracker setting.
+   - The script allows filtering torrents by tracker domain, matching the behavior of the qBittorrent GUI's "Trackers" section.
+   - When prompted to filter by tracker:
+    - Enter `y` to enable filtering, then input a tracker domain exactly as it appears in the qBittorrent GUI's "Trackers" section.
+    - Enter `n` or press Enter to process all torrents, equivalent to the GUI's "All" tracker setting.
 
 5. The program will preview changes and update torrent paths. Logs are saved in the `Logs` directory.
 
