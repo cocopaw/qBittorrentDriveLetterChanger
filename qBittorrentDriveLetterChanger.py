@@ -4,6 +4,7 @@ import time
 import datetime
 import sys
 import os
+from urllib.parse import urlparse
 
 # Create Logs directory if it doesn't exist
 LOGS_DIR = "Logs"
@@ -49,6 +50,16 @@ def validate_drive_letter(prompt):
             return drive
         print("Invalid drive letter. Please enter a single letter followed by a colon (e.g. 'E:')")
 
+# Function to validate if URL is contactable
+def is_url_contactable(url):
+    try:
+        response = requests.get(url, timeout=5, allow_redirects=True)
+        log_message(f"Debug: URL check for {url} returned status {response.status_code}")
+        return response.status_code == 200
+    except requests.RequestException as e:
+        log_message(f"Debug: URL check failed for {url}: {str(e)}")
+        return False
+
 # Function to process a single torrent
 def process_torrent(torrent, torrent_list):
     hash = torrent["hash"]
@@ -58,8 +69,10 @@ def process_torrent(torrent, torrent_list):
     
     # Ensure session is still valid
     if not authenticate():
-        print("Session expired. Unable to continue. Please restart the script.")
-        sys.exit(1)
+        log_message("Session expired. Attempting to re-authenticate.")
+        if not authenticate():  # Retry once
+            print("Session expired. Unable to re-authenticate. Please restart the script.")
+            sys.exit(1)
 
     # Set location with proper form data
     data = {"hashes": hash, "location": new_path}
@@ -83,10 +96,12 @@ print()
 
 # Welcome message
 print("""
-Welcome to the qBittorrent Drive Letter Changer! (Version 1.0)
-This script updates the Windows drive letter on one or more torrents in qBittorrent.  
-All torrents are selected by default. Alternately torrents belonging to a single tracker can be specified.
-      
+Welcome to the qBittorrent Drive Letter Changer! (Version 1.0.1)
+This script updates the Windows drive letter on one or more torrents in qBittorrent.
+If torrent data exists at the new drive, it updates the path and verifies data on the destination.
+If data is only on the old drive, it moves the data to the new drive and deletes the source.
+All torrents are selected by default. Alternately, torrents belonging to a single tracker can be specified.
+
 Logs will be saved to: {}
 """.format(os.path.join(LOGS_DIR, "qbittorrent_drive_change_*.log")).strip())
 log_message("Script started")
@@ -112,9 +127,9 @@ input("Press Enter when you have shut down qBittorrent and backed up the specifi
 print("""
 Please ensure qBittorrent is running and WebUI is enabled:
 1. Open qBittorrent
-2. Go to Tools > Options > Web UI
+2. Go to Tools > Options > WebUI
 3. Check 'Web User Interface (Remote control)'
-4. Note the IP address (usually '*' or '127.0.0.1') and port (default 8080)
+4. Note the IP address (default '*') and port (default 8080)
 5. Ensure authentication is enabled and note your username/password
 """.strip())
 print()  # Add blank line before input prompt
@@ -129,15 +144,28 @@ def authenticate():
     response = session.post(f"{WEBUI_URL}/api/v2/auth/login", data={"username": USERNAME, "password": PASSWORD}, timeout=10)
     if response.status_code == 200 and response.text.strip() == "Ok.":
         log_message("Authentication successful")
+        print("Authentication successful. Connected to qBittorrent WebUI.")
         return True
     else:
         log_message(f"Authentication failed: {response.text.strip()}")
         return False
 
-# Get login credentials with retry loop
+# Get login credentials with retry loop and URL validation
+WEBUI_URL = ""
+while not WEBUI_URL:
+    WEBUI_URL = input(f"Enter WebUI URL [http://localhost:8080]: ").strip() or "http://localhost:8080"
+    # Ensure the URL has a scheme (http:// or https://)
+    if not WEBUI_URL.startswith(('http://', 'https://')):
+        WEBUI_URL = 'http://' + WEBUI_URL
+    # Validate the URL
+    if not is_url_contactable(WEBUI_URL):
+        print("Invalid or unreachable URL. Please check the address and try again.")
+        print()
+        WEBUI_URL = ""
+        continue
+
 while True:
-    WEBUI_URL = input("Enter qBittorrent WebUI URL (default: 'http://127.0.0.1:8080', press Enter for default): ").strip() or "http://127.0.0.1:8080"
-    USERNAME = input("Enter WebUI username (default: 'admin', press Enter for default): ").strip() or "admin"
+    USERNAME = input(f"Enter WebUI username [admin]: ").strip() or "admin"
     PASSWORD = input("Enter WebUI password: ").strip()
     
     # Test connection and authenticate
@@ -148,98 +176,74 @@ while True:
     print("Please check credentials and try again.")
     print()
 
-# Get drive letters and tracker choice
-OLD_DRIVE = validate_drive_letter("Enter the drive letter you want to change from (e.g. 'D:'): ")
-NEW_DRIVE = validate_drive_letter("Enter the drive letter you want to change to (e.g. 'E:'): ")
-use_tracker = input("Filter by specific tracker? 'y'/'n' (default: 'n', press Enter for default): ").strip().lower() in ['y', 'yes']
-TARGET_TRACKER = input("Enter tracker domain name to filter by (e.g. domain.com): ").strip() if use_tracker else ""
+while True:
+    OLD_DRIVE = validate_drive_letter("Enter old drive letter: ")
+    NEW_DRIVE = validate_drive_letter("Enter new drive letter: ")
+    use_tracker = input("Filter by tracker? (y/n) [n]: ").strip().lower() in ['y', 'yes']
+    TARGET_TRACKER = input("Enter tracker domain from 'Trackers' section in GUI: ").strip() if use_tracker else ""
 
-try:
-    # Get all torrents with tracker info
-    params = {"extra": "trackers"}
-    response = session.get(f"{WEBUI_URL}/api/v2/torrents/info", params=params, headers={"Host": "127.0.0.1:8080"}, timeout=10)
-    log_message("Torrents API call initiated")
-    if response.status_code != 200:
-        log_message(f"Failed to get torrents list: HTTP {response.status_code}")
-        raise Exception(f"Failed to get torrents list: HTTP {response.status_code}")
-    torrents = json.loads(response.text)
-    log_message("Torrents data retrieved")
+    try:
+        # Get all torrents with tracker info
+        params = {"extra": "trackers"}
+        response = session.get(f"{WEBUI_URL}/api/v2/torrents/info", params=params, timeout=10)
+        log_message("Torrents API call initiated")
+        if response.status_code != 200:
+            log_message(f"Failed to get torrents list: HTTP {response.status_code}")
+            raise Exception(f"Failed to get torrents list: HTTP {response.status_code}")
+        torrents = json.loads(response.text)
 
-    # Filter torrents
-    filtered_torrents = [t for t in torrents if (not use_tracker or has_target_tracker(t.get("tracker"), TARGET_TRACKER)) and t["save_path"].startswith(OLD_DRIVE)]
-    log_message(f"Found {len(filtered_torrents)} torrents to process")
-    for torrent in filtered_torrents:
-        log_message(f"Filtered torrent: {torrent.get('name', 'Unnamed Torrent')} - {torrent['save_path']}")
+        # Filter torrents
+        filtered_torrents = [t for t in torrents if (not use_tracker or has_target_tracker(t.get("tracker"), TARGET_TRACKER)) and t["save_path"].startswith(OLD_DRIVE)]
+        log_message(f"Found {len(filtered_torrents)} torrents to process")
+        for torrent in filtered_torrents:
+            log_message(f"Filtered torrent: {torrent.get('name', 'Unnamed Torrent')} - {torrent['save_path']}")
 
-    if not filtered_torrents:
-        log_message("No torrents found matching criteria")
-        print("No torrents found matching your criteria. Exiting.")
-        session.get(f"{WEBUI_URL}/api/v2/auth/logout")
-        sys.exit(0)
+        if not filtered_torrents:
+            print()
+            print("No torrents found matching your criteria. Please try again.")
+            continue
 
-    # Sort torrents by name
-    filtered_torrents.sort(key=lambda x: x.get("name", "").lower())
+        # Sort torrents by name
+        filtered_torrents.sort(key=lambda x: x.get("name", "").lower())
 
-    # Description before preview with torrent count
-    print()
-    print(f"{len(filtered_torrents)} torrents were found to process.")
-    print(f"Changing drive letter from {OLD_DRIVE} to {NEW_DRIVE}.")
-    print(f"You can test by changing the drive letter on a single torrents one at a time or process all the torrents.")
-    print()  # Line space after description
+        # Description before preview with torrent count
+        print()
+        print(f"{len(filtered_torrents)} torrents were found to process.")
+        print(f"Changing drive letter from {OLD_DRIVE} to {NEW_DRIVE}.")
+        print(f"You can test by changing the drive letter on a single torrent one at a time or process all the torrents.")
+        print()  # Line space after description
 
-    # Initialize processed count
-    processed_count = 0
+        # Initialize processed count
+        processed_count = 0
 
-    # Preview first torrent with name and path
-    print("Preview of changes to the 1st torrent:")
-    print()
-    torrent = filtered_torrents[0]
-    old_path = torrent["save_path"]
-    torrent_name = torrent.get("name", "Unnamed Torrent")
-    old_full_path = os.path.join(old_path, torrent_name) if torrent_name != "Unnamed Torrent" else old_path
-    new_full_path = os.path.join(NEW_DRIVE + old_path[len(OLD_DRIVE):], torrent_name) if torrent_name != "Unnamed Torrent" else NEW_DRIVE + old_path[len(OLD_DRIVE):]
-    print(f"Before: {old_full_path}")
-    print(f"After: {new_full_path}")
+        # Preview first torrent with name and path
+        print("Preview of changes to the 1st torrent:")
+        print()
+        torrent = filtered_torrents[0]
+        old_path = torrent["save_path"]
+        torrent_name = torrent.get("name", "Unnamed Torrent")
+        old_full_path = os.path.join(old_path, torrent_name) if torrent_name != "Unnamed Torrent" else old_path
+        new_full_path = os.path.join(NEW_DRIVE + old_path[len(OLD_DRIVE):], torrent_name) if torrent_name != "Unnamed Torrent" else NEW_DRIVE + old_path[len(OLD_DRIVE):]
+        print(f"Before: {old_full_path}")
+        print(f"After: {new_full_path}")
 
-    # Process torrents iteratively
-    while filtered_torrents:
-        # Ask for confirmation
-        while True:
-            action = input("\nChoose action: [1] Process the single torrent listed above, [2] Process all torrents, [q] Quit: ").strip().lower()
-            if action in ['1', '2', 'q']:
-                break
-            print("Invalid input. Please enter '1', '2', or 'q'.")
-        if action == 'q':
-            log_message("User chose to quit")
-            print("Exiting without making changes.")
-            break
-        elif action == '1':
-            log_message("User chose to process only the first torrent")
-            if 'process_torrent' in globals():
-                print()  # Add newline before processing
-                process_torrent(filtered_torrents[0], filtered_torrents)
-                processed_count += 1
-                if filtered_torrents:  # Check if there are more torrents to preview
-                    print()
-                    print(f"Preview of changes to the {get_ordinal_suffix(processed_count + 1)} torrent:")
-                    print()
-                    torrent = filtered_torrents[0]
-                    old_path = torrent["save_path"]
-                    torrent_name = torrent.get("name", "Unnamed Torrent")
-                    old_full_path = os.path.join(old_path, torrent_name) if torrent_name != "Unnamed Torrent" else old_path
-                    new_full_path = os.path.join(NEW_DRIVE + old_path[len(OLD_DRIVE):], torrent_name) if torrent_name != "Unnamed Torrent" else NEW_DRIVE + old_path[len(OLD_DRIVE):]
-                    print(f"Before: {old_full_path}")
-                    print(f"After: {new_full_path}")
-            else:
-                log_message("Function 'process_torrent' not found in global scope")
-                print("Error: Function 'process_torrent' is not defined. Please check script integrity.")
-                break
-        else:
-            log_message("User chose to process all torrents")
-            if 'process_torrent' in globals():
-                for torrent in filtered_torrents[:]:
+        # Process torrents iteratively
+        while filtered_torrents:
+            # Ask for confirmation
+            while True:
+                action = input("\nChoose action: [1] Process the single torrent listed above, [2] Process all torrents, [q] Quit: ").strip().lower()
+                if action in ['1', '2', 'q']:
+                    break
+                print("Invalid input. Please enter '1', '2', or 'q'.")
+            if action == 'q':
+                log_message("User chose to quit")
+                print("Exiting without making changes.")
+                sys.exit(0)  # Forcefully exit the program
+            elif action == '1':
+                log_message("User chose to process only the first torrent")
+                if 'process_torrent' in globals():
                     print()  # Add newline before processing
-                    process_torrent(torrent, filtered_torrents)
+                    process_torrent(filtered_torrents[0], filtered_torrents)
                     processed_count += 1
                     if filtered_torrents:  # Check if there are more torrents to preview
                         print()
@@ -252,19 +256,42 @@ try:
                         new_full_path = os.path.join(NEW_DRIVE + old_path[len(OLD_DRIVE):], torrent_name) if torrent_name != "Unnamed Torrent" else NEW_DRIVE + old_path[len(OLD_DRIVE):]
                         print(f"Before: {old_full_path}")
                         print(f"After: {new_full_path}")
+                else:
+                    log_message("Function 'process_torrent' not found in global scope")
+                    print("Error: Function 'process_torrent' is not defined. Please check script integrity.")
+                    break
             else:
-                log_message("Function 'process_torrent' not found in global scope")
-                print("Error: Function 'process_torrent' is not defined. Please check script integrity.")
-                break
+                log_message("User chose to process all torrents")
+                if 'process_torrent' in globals():
+                    for torrent in filtered_torrents[:]:
+                        print()  # Add newline before processing
+                        process_torrent(torrent, filtered_torrents)
+                        processed_count += 1
+                        if filtered_torrents:  # Check if there are more torrents to preview
+                            print()
+                            print(f"Preview of changes to the {get_ordinal_suffix(processed_count + 1)} torrent:")
+                            print()
+                            torrent = filtered_torrents[0]
+                            old_path = torrent["save_path"]
+                            torrent_name = torrent.get("name", "Unnamed Torrent")
+                            old_full_path = os.path.join(old_path, torrent_name) if torrent_name != "Unnamed Torrent" else old_path
+                            new_full_path = os.path.join(NEW_DRIVE + old_path[len(OLD_DRIVE):], torrent_name) if torrent_name != "Unnamed Torrent" else NEW_DRIVE + old_path[len(OLD_DRIVE):]
+                            print(f"Before: {old_full_path}")
+                            print(f"After: {new_full_path}")
+                else:
+                    log_message("Function 'process_torrent' not found in global scope")
+                    print("Error: Function 'process_torrent' is not defined. Please check script integrity.")
+                    break
 
-    # Only display completion message if user didn't quit
-    if action != 'q':
-        log_message("Process completed")
-        print()
-        print("Process completed successfully! All torrents moved will be rechecked automatically. Exiting now.")
-except Exception as e:
-    log_message(f"Error occurred: {str(e)}")
-    print(f"Error: {str(e)}")
-finally:
-    session.get(f"{WEBUI_URL}/api/v2/auth/logout")
-    log_message("Logout performed")
+        # Only display completion message if user didn't quit
+        if action != 'q':
+            log_message("Process completed")
+            print()
+            print("Process completed successfully! All torrents moved will be rechecked automatically. Exiting now.")
+            break  # Exit the outer while True loop
+    except Exception as e:
+        log_message(f"Error occurred: {str(e)}")
+        print(f"Error: {str(e)}")
+    finally:
+        session.get(f"{WEBUI_URL}/api/v2/auth/logout")
+        log_message("Logout performed")

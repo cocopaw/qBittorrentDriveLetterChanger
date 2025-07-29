@@ -1,15 +1,14 @@
 # qBittorrent Drive Letter Changer
 
 ## Overview
-The **qBittorrent Drive Letter Changer** is a Python script (also available as a standalone `.exe`) designed to update the drive letter for torrent save paths in qBittorrent. It allows users to change the drive letter for all torrents or filter by a specific tracker domain, making it useful for scenarios like migrating torrents to a new drive.
+The **qBittorrent Drive Letter Changer** (Version 1.0.1) is a Python script (also available as a standalone `.exe`) designed to update the drive letter for multiple torrents with differing save paths in qBittorrent. It addresses the limitation of the qBittorrent GUI’s "Set Location" function, which only supports updating multiple torrents with the same save path.
 
 ## Features
 - Updates drive letters for torrent save paths in qBittorrent via its WebUI API.
-- Option to process all torrents or filter by a specific tracker domain.
+- Option to filter torrent selection by a specific tracker domain.
 - Interactive preview of changes before processing.
-- Processes torrents one at a time or all at once.
+- Option to processes torrents one at a time or all at once.
 - Detailed logging to track actions and errors.
-- Validates user inputs for drive letters and WebUI credentials.
 - Ensures qBittorrent is properly configured before proceeding.
 
 ## Requirements
@@ -19,7 +18,7 @@ The **qBittorrent Drive Letter Changer** is a Python script (also available as a
 - **For executable version**:
   - No Python installation required; use the provided `.exe` file
 - qBittorrent with WebUI enabled
-- Windows operating system (due to drive letter functionality)
+- qBittorrent installed on Windows operating system
 
 ## Installation
 1. **Option 1: Using Python**
@@ -34,7 +33,7 @@ The **qBittorrent Drive Letter Changer** is a Python script (also available as a
 3. Ensure qBittorrent is installed and running with WebUI enabled:
    - Go to **Tools > Options > Web UI** in qBittorrent.
    - Check **Web User Interface (Remote control)**.
-   - Note the IP address (usually '*' or '127.0.0.1') and port (default `8080`).
+   - Note the IP address (default '*') and port (default 8080). Use 'localhost' for local access when prompted by the script.
    - Ensure authentication is enabled and note your username/password.
 
 ## Usage
@@ -53,29 +52,51 @@ The **qBittorrent Drive Letter Changer** is a Python script (also available as a
 3. Follow the prompts:
    - Confirm qBittorrent has been backed up.
    - Verify WebUI settings.
-   - Enter WebUI URL, username, and password (defaults: `http://127.0.0.1:8080`, `admin`).
+   - Enter WebUI URL, username, and password (defaults: `http://localhost:8080`, `admin`).
    - Specify the old and new drive letters (e.g., `D:` to `E:`).
    - Choose to filter by a tracker (optional).
    - Select to process a single torrent or all torrents, or quit.
-4. The program will preview changes and update torrent paths. Logs are saved in the `Logs` directory.
+
+4. Tracker Filtering:
+   - The script allows filtering torrents by tracker domain, mirroring the qBittorrent GUI's 'Trackers' section behavior.
+   - When prompted to filter by tracker, enter 'y' to enable filtering. Then, enter a tracker domain from the 'Trackers' section in GUI.
+   - Press Enter without input to process all trackers (equivalent to the GUI's 'All' setting).
+
+5. The program will preview changes and update torrent paths. Logs are saved in the `Logs` directory.
+
+## Behavior
+The script's behavior mirrors the "Set Location" function in qBittorrent GUI, equivalent to selecting "Set Location" and changing the drive letter in the address bar for each torrent. Specifically:
+- It updates the save path for each torrent and handles the associated torrent data as follows:
+  - If the torrent data is already present at the destination location (new drive), the script updates the save path and verifies the data at the new location, leaving the source data in place.
+  - If the torrent data is not at the destination location but is present at the source location (old drive), the script moves the data on disk from the source to the destination and deletes the source data.
+
+## Use Cases
+The script addresses limitations in the qBittorrent GUI's "Set Location" function and is particularly useful in the following scenarios:
+- **Bulk updating torrents with different save paths**: The GUI's "Set Location" function cannot update multiple torrents with different save paths in a single action, requiring users to manually update each torrent individually, which is impractical for large numbers of torrents.
+- **Efficient drive migration**: The script allows users to update the drive letter for multiple torrents with varying save paths in a single operation, preserving their original save path structure (e.g., migrating all torrents from `D:` to `E:` regardless of their individual paths). In contrast, the GUI's "Set Location" function only supports moving multiple torrents simultaneously if they share the same save path.
+- **Other scenarios**: The script may be used for any situation that calls for updating the drive letter on multiple torrents with varying save paths.
 
 ## Example
 To change all torrents from drive `D:` to `E:`:
-1. Enter WebUI URL: `http://127.0.0.1:8080`
+1. Enter WebUI URL: `http://localhost:8080`
 2. Enter username: `admin`
 3. Enter password: `your_password`
 4. Enter old drive: `D:`
 5. Enter new drive: `E:`
-6. Choose to process all torrents.
+6. Filter by tracker? (y/n): 'n'
 
 ## Logs
 - Logs are saved in the `Logs` directory with filenames like `qbittorrent_drive_change_YYYY-MM-DD_HH-MM-SS.log`.
 - Logs include timestamps, torrent details, and error messages.
-- Only critical messages (e.g., errors, updates) are printed to the console.
+- Only critical messages (e.g., errors, successful updates) are printed to the console, while detailed debug and operational logs are recorded in the log file.
+
+## Changelog
+See the [`CHANGELOG.md`](./CHANGELOG.md) file for a detailed version history and release notes.
 
 ## Important Notes
 - **Backup is mandatory**: Always back up qBittorrent data before running the program to prevent data loss.
 - **WebUI must be enabled**: Ensure qBittorrent's WebUI is active and accessible.
+- **HTTPS Support**: The script supports HTTPS if enabled in qBittorrent (e.g., `https://localhost:8080`) with a valid certificate/key.
 - **No warranty**: This program is provided as-is. Use at your own risk. The author is not responsible for any issues or data loss.
 
 ## Troubleshooting
